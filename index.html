@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#12345a">
+<link rel="manifest" href="manifest.json">
+<title>실제 덕트 속도·속도압 계산기</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#182235;background:#f2f6fb}
+*{box-sizing:border-box}body{margin:0;padding:16px 12px 32px}main{max-width:700px;margin:auto}
+header{background:#12345a;color:white;padding:22px 18px;border-radius:18px;margin-bottom:14px}
+h1{font-size:1.4rem;margin:0 0 8px}header p{margin:0;color:#e1eaf5;line-height:1.55}
+.card{background:white;border:1px solid #dfe7f1;border-radius:15px;padding:17px;margin:12px 0;box-shadow:0 4px 16px #19385c08}
+h2{font-size:1.08rem;margin:0 0 12px}
+label{display:block;font-weight:700;margin:12px 0 6px}
+input,select{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:1rem;background:white;color:#182235}
+.grid{display:grid;grid-template-columns:1fr;gap:8px}
+button{width:100%;border:0;border-radius:10px;padding:13px;font-weight:750;font-size:1rem;background:#1764b0;color:white;margin-top:14px}
+.results{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+.result{background:#edf6ff;border:1px solid #c9e1fb;border-radius:12px;padding:13px;min-width:0}
+.result .label{font-size:.86rem;color:#405975;line-height:1.4}
+.result .value{font-size:1.35rem;font-weight:800;color:#0759a4;margin-top:5px;overflow-wrap:anywhere}
+.result .unit{font-size:.85rem;font-weight:650}
+.highlight{background:#eaf8ef;border-color:#bde7cb}
+.highlight .value{color:#16713b}
+.note{font-size:.9rem;line-height:1.6;color:#526176}
+.formula{padding:11px;background:#f7f9fc;border-radius:9px;line-height:1.8;overflow-wrap:anywhere}
+hr{border:0;border-top:1px solid #e4eaf1;margin:14px 0}
+@media(min-width:540px){body{padding-top:26px}.card{padding:21px}.grid.two{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>실제 덕트 속도·속도압 계산기</h1>
+<p>필요환기량과 목표 덕트 유속으로 계산 직경을 구한 뒤, 상용 규격을 선정하여 실제 덕트 내 유속과 속도압을 계산합니다.</p>
+</header>
+
+<section class="card">
+<h2>1. 설계 조건 입력</h2>
+<div class="grid two">
+  <div>
+    <label for="q">필요환기량 Q (m³/min)</label>
+    <input id="q" type="number" min="0" step="any" value="30" inputmode="decimal">
+  </div>
+  <div>
+    <label for="targetV">설계 덕트 내 유속 (m/s)</label>
+    <input id="targetV" type="number" min="0" step="any" value="15" inputmode="decimal">
+  </div>
+  <div>
+    <label for="rho">공기 밀도 ρ (kg/m³)</label>
+    <input id="rho" type="number" min="0" step="any" value="1.2" inputmode="decimal">
+  </div>
+  <div>
+    <label for="sizeMode">상용 규격 선정 기준</label>
+    <select id="sizeMode">
+      <option value="below" selected>계산 직경 이하에서 가장 큰 규격</option>
+      <option value="nearest">계산 직경에 가장 가까운 규격</option>
+      <option value="above">계산 직경 이상에서 가장 작은 규격</option>
+    </select>
+  </div>
+</div>
+<hr>
+<h2>마찰손실 계산 조건</h2>
+<div class="grid two">
+  <div>
+    <label for="friction">마찰계수 f (무차원)</label>
+    <input id="friction" type="number" min="0" step="any" value="0.02" inputmode="decimal">
+  </div>
+  <div>
+    <label for="length">덕트 길이 L (m)</label>
+    <input id="length" type="number" min="0" step="any" value="10" inputmode="decimal">
+  </div>
+</div>
+<button id="calculate" type="button">실제 덕트 속도·속도압·마찰손실 계산</button>
+</section>
+
+<section class="card">
+<h2>2. 계산 결과</h2>
+<div class="results">
+  <div class="result"><div class="label">이론 계산 직경</div><div class="value"><span id="theoryD">—</span> <span class="unit">mm</span></div></div>
+  <div class="result highlight"><div class="label">선정 상용 덕트 직경</div><div class="value"><span id="selectedD">—</span> <span class="unit">mm</span></div></div>
+  <div class="result"><div class="label">선정 덕트 단면적</div><div class="value"><span id="area">—</span> <span class="unit">m²</span></div></div>
+  <div class="result highlight"><div class="label">실제 덕트 내 유속</div><div class="value"><span id="actualV">—</span> <span class="unit">m/s</span></div></div>
+  <div class="result"><div class="label">실제 속도압</div><div class="value"><span id="pressurePa">—</span> <span class="unit">Pa</span></div></div>
+  <div class="result"><div class="label">실제 속도압</div><div class="value"><span id="pressureMm">—</span> <span class="unit">mmH₂O</span></div></div>
+  <div class="result highlight"><div class="label">덕트 마찰손실 Δp</div><div class="value"><span id="lossPa">—</span> <span class="unit">Pa</span></div></div>
+  <div class="result highlight"><div class="label">덕트 마찰손실 Δp</div><div class="value"><span id="lossMm">—</span> <span class="unit">mmH₂O</span></div></div>
+</div>
+<p class="note" id="status" aria-live="polite">입력값을 확인하고 계산 버튼을 누르세요.</p>
+<hr>
+<h2>계산식</h2>
+<div class="formula">
+  이론 직경: <b>D = √[4(Q/60)/(π × V설계)]</b><br>
+  실제 유속: <b>V실제 = (Q/60) ÷ [π(D선정/1000)²/4]</b><br>
+  속도압: <b>VP = ½ρV실제²</b> (Pa)<br>
+  교재의 마찰손실식: <b>Δp = f × (L/D) × VP</b><br>
+  환산: <b>mmH₂O = Pa ÷ 9.80665</b>
+</div>
+<p class="note">Q는 m³/min, 직경 D는 m으로 환산해 마찰손실식에 적용하고, 길이 L은 m, 속도는 m/s 기준입니다. 마찰계수 f는 교재·설계기준에 맞게 입력하세요. 이 계산은 입력한 마찰계수에 따른 직선 덕트 마찰손실이며, 엘보·분기·댐퍼 등 국부손실은 포함하지 않습니다.</p>
+</section>
+
+<section class="card">
+<h2>3. 사용한 상용 덕트 규격표</h2>
+<p class="note">교재에 제시된 인치 호칭과 mm 규격을 기준으로 합니다. 실제 구매·시공 전에는 제조사 규격과 현장 설계 기준을 확인하세요.</p>
+<div id="sizeList" class="note"></div>
+</section>
+</main>
+<script>
+(() => {
+ const sizes = [
+  {inch:'3/8"',mm:10},{inch:'1/2"',mm:15},{inch:'3/4"',mm:20},
+  {inch:'1"',mm:25},{inch:'1 1/4"',mm:32},{inch:'1 1/2"',mm:40},
+  {inch:'2"',mm:50},{inch:'2 1/2"',mm:65},{inch:'3"',mm:80},
+  {inch:'3 1/2"',mm:90},{inch:'4"',mm:100},{inch:'5"',mm:125},
+  {inch:'6"',mm:150},{inch:'8"',mm:200},{inch:'10"',mm:250},
+  {inch:'12"',mm:300},{inch:'14"',mm:350},{inch:'16"',mm:400},
+  {inch:'18"',mm:450},{inch:'20"',mm:500},{inch:'22"',mm:550},
+  {inch:'24"',mm:600},{inch:'26"',mm:650},{inch:'30"',mm:750}
+ ];
+ const $ = id => document.getElementById(id);
+ const fmt = (n,d=3) => Number(n).toLocaleString('ko-KR',{minimumFractionDigits:0,maximumFractionDigits:d});
+ function chooseSize(d, mode) {
+   if(mode==='below') {
+     const eligible=sizes.filter(s=>s.mm<=d);
+     return eligible.length ? eligible[eligible.length-1] : null;
+   }
+   if(mode==='above') return sizes.find(s=>s.mm>=d) || null;
+   return sizes.reduce((best,s)=>Math.abs(s.mm-d)<Math.abs(best.mm-d)?s:best,sizes[0]);
+ }
+ function calculate() {
+   const q=Number($('q').value), targetV=Number($('targetV').value), rho=Number($('rho').value);
+   const f=Number($('friction').value), length=Number($('length').value);
+   const status=$('status');
+   if($('q').value.trim()===''||$('targetV').value.trim()===''||$('rho').value.trim()===''||
+      $('friction').value.trim()===''||$('length').value.trim()===''||
+      !Number.isFinite(q)||!Number.isFinite(targetV)||!Number.isFinite(rho)||!Number.isFinite(f)||!Number.isFinite(length)||
+      q<=0||targetV<=0||rho<=0||f<0||length<0) {
+     ['theoryD','selectedD','area','actualV','pressurePa','pressureMm','lossPa','lossMm'].forEach(id=>$(id).textContent='—');
+     status.textContent='Q, 설계 덕트 내 유속, 공기 밀도는 0보다 크게, 마찰계수와 덕트 길이는 0 이상으로 입력하세요.';
+     return;
+   }
+   const qSec=q/60;
+   const theoryM=Math.sqrt(4*qSec/(Math.PI*targetV));
+   const theoryMm=theoryM*1000;
+   const selected=chooseSize(theoryMm,$('sizeMode').value);
+   $('theoryD').textContent=fmt(theoryMm,2);
+   if(!selected) {
+     ['selectedD','area','actualV','pressurePa','pressureMm','lossPa','lossMm'].forEach(id=>$(id).textContent='규격 없음');
+     status.textContent='계산 직경이 상용 규격표의 최소 또는 최대 범위를 벗어났습니다. 입력값이나 규격표를 확인하세요.';
+     return;
+   }
+   const d=selected.mm/1000;
+   const area=Math.PI*d*d/4;
+   const actualV=qSec/area;
+   const vpPa=0.5*rho*actualV*actualV;
+   const vpMm=vpPa/9.80665;
+   const lossPa=f*(length/d)*vpPa;
+   const lossMm=lossPa/9.80665;
+   $('selectedD').textContent=selected.mm+' ('+selected.inch+')';
+   $('area').textContent=fmt(area,6);
+   $('actualV').textContent=fmt(actualV,3);
+   $('pressurePa').textContent=fmt(vpPa,3);
+   $('pressureMm').textContent=fmt(vpMm,3);
+   $('lossPa').textContent=fmt(lossPa,3);
+   $('lossMm').textContent=fmt(lossMm,3);
+   let message='선정 규격 '+selected.mm+' mm 기준 실제 유속과 속도압을 계산했습니다.';
+   if($('sizeMode').value==='below' && selected.mm<theoryMm) message+=' 계산 직경보다 작은 규격을 선택해 실제 유속이 설계 유속보다 높아집니다.';
+   if($('sizeMode').value==='above' && selected.mm>theoryMm) message+=' 계산 직경보다 큰 규격을 선택해 실제 유속이 설계 유속보다 낮아집니다.';
+   if($('sizeMode').value==='nearest') message+=' 가장 가까운 규격을 선택했으므로 실제 유속은 설계 유속과 다를 수 있습니다.';
+   status.textContent=message;
+ }
+ $('calculate').addEventListener('click',calculate);
+ ['q','targetV','rho','sizeMode','friction','length'].forEach(id=>$(id).addEventListener('input',calculate));
+ $('sizeList').textContent=sizes.map(s=>s.inch+' = '+s.mm+' mm').join(' · ');
+ calculate();
+ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+   window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
+ }
+})();
+</script>
+</body>
+</html>
